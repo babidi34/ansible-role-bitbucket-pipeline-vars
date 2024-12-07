@@ -1,0 +1,8 @@
+---
+# tasks file for bitbucket_env_vars
+
+- name: Set repository variables
+  include_tasks: repo_vars.yml
+
+- name: Set deploy variables
+  include_tasks: deploy_vars.yml

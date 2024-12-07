@@ -1,0 +1,22 @@
+---
+# vars file for bitbucket_env_vars
+repository_variables:
+  - key: "GIT_REPO"
+    value: "https://bitbucket.org/example/repo.git"
+    secured: false
+
+environment_variables:
+  - environment: "dev"
+    variables:
+      - key: "SSH_HOST"
+        value: "dev.server.com"
+        secured: true
+      - key: "SSH_PORT"
+        value: "22"
+  - environment: "prod"
+    variables:
+      - key: "SSH_HOST"
+        value: "prod.server.com"
+        secured: true
+      - key: "SSH_PORT"
+        value: "22"

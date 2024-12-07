@@ -1,0 +1,18 @@
+---
+- name: Add repository variables
+  uri:
+    url: "https://api.bitbucket.org/2.0/repositories/{{ bitbucket_workspace }}/{{ bitbucket_repo }}/pipelines_config/variables/"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ bitbucket_token }}"
+      Content-Type: "application/json"
+    body: "{{ item | to_json }}"
+    body_format: json
+  loop: "{{ repository_variables }}"
+  register: result_repo_vars
+
+- name: Check repository variables
+  debug:
+    msg: "Variable '{{ item.key }}' configurée avec succès."
+  loop: "{{ result_repo_vars.results }}"
+  when: item.status == 201

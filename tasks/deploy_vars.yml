@@ -1,0 +1,25 @@
+---
+- name: Add variables for each env
+  uri:
+    url: "https://api.bitbucket.org/2.0/repositories/{{ bitbucket_workspace }}/{{ bitbucket_repo }}/environments/{{ item.environment }}/variables/"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ bitbucket_token }}"
+      Content-Type: "application/json"
+    body: "{{ var_item | to_json }}"
+    body_format: json
+  with_nested:
+    - "{{ environment_variables }}"
+    - "{{ item.variables }}"
+  vars:
+    var_item:
+      key: "{{ item[1].key }}"
+      value: "{{ item[1].value }}"
+      secured: "{{ item[1].secured | default(false) }}"
+  register: result_env_vars
+
+- name: Check env vars
+  debug:
+    msg: "Variable '{{ item[1].key }}' pour '{{ item[0].environment }}' configurée avec succès."
+  loop: "{{ result_env_vars.results }}"
+  when: item[1].status == 201
