@@ -32,6 +32,7 @@
   when: item.key in variable_uuids
   register: delete_results
   changed_when: delete_results.status == 204
+  no_log: true
 
 - name: Add repository variables
   uri:
@@ -45,4 +46,5 @@
     status_code: [200, 201]
   loop: "{{ repository_variables }}"
   changed_when: true
+  no_log: true
   

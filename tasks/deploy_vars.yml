@@ -41,7 +41,7 @@
   when: item.1.key in environment_variable_uuids[item.0.environment]
   register: delete_env_vars_results
   changed_when: delete_env_vars_results.status == 204
-
+  no_log: true
 
 - name: Add variables for each environment
   uri:
@@ -62,3 +62,4 @@
     - "{{ environment_variables }}"
     - variables
   changed_when: true
+  no_log: true
