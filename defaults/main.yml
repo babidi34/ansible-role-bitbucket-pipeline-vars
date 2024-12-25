@@ -2,6 +2,6 @@
 # defaults file for bitbucket_env_vars
 bitbucket_workspace: ""
 bitbucket_repo: ""
-bitbucket_token: ""
+bitbucket_auth: ""
 repository_variables: []
 environment_variables: []

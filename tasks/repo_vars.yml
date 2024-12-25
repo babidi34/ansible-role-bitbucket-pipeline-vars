@@ -1,18 +1,48 @@
 ---
+- name: Fetch existing variables
+  uri:
+    url: "https://api.bitbucket.org/2.0/repositories/{{ bitbucket_workspace }}/{{ bitbucket_repo }}/pipelines_config/variables/"
+    method: GET
+    headers:
+      Authorization: "{{ bitbucket_auth }}"
+    return_content: yes
+  register: existing_variables
+
+
+- name: Map variable keys to UUIDs
+  set_fact:
+    variable_uuids: >-
+      {{
+        dict(
+          query_result_keys | zip(query_result_uuids)
+        )
+      }}
+  vars:
+    query_result_keys: "{{ existing_variables.json | community.general.json_query('values[*].key') }}"
+    query_result_uuids: "{{ existing_variables.json | community.general.json_query('values[*].uuid') | map('regex_replace', '[{}]', '') }}"
+
+- name: Delete existing variable by UUID
+  uri:
+    url: "https://api.bitbucket.org/2.0/repositories/{{ bitbucket_workspace }}/{{ bitbucket_repo }}/pipelines_config/variables/{{ '{' + variable_uuids[item.key] + '}' }}"
+    method: DELETE
+    headers:
+      Authorization: "{{ bitbucket_auth }}"
+    status_code: [200, 204, 404]  # Accepte 404 si la variable n'existe pas
+  loop: "{{ repository_variables }}"
+  when: item.key in variable_uuids
+  register: delete_results
+  changed_when: delete_results.status == 204
+
 - name: Add repository variables
   uri:
     url: "https://api.bitbucket.org/2.0/repositories/{{ bitbucket_workspace }}/{{ bitbucket_repo }}/pipelines_config/variables/"
     method: POST
     headers:
-      Authorization: "Bearer {{ bitbucket_token }}"
+      Authorization: "{{ bitbucket_auth }}"
       Content-Type: "application/json"
     body: "{{ item | to_json }}"
     body_format: json
+    status_code: [200, 201]
   loop: "{{ repository_variables }}"
-  register: result_repo_vars
-
-- name: Check repository variables
-  debug:
-    msg: "Variable '{{ item.key }}' configurée avec succès."
-  loop: "{{ result_repo_vars.results }}"
-  when: item.status == 201
+  changed_when: true
+  

@@ -1,25 +1,64 @@
 ---
-- name: Add variables for each env
+- name: Fetch existing variables for each environment
   uri:
-    url: "https://api.bitbucket.org/2.0/repositories/{{ bitbucket_workspace }}/{{ bitbucket_repo }}/environments/{{ item.environment }}/variables/"
+    url: "https://api.bitbucket.org/2.0/repositories/{{ bitbucket_workspace }}/{{ bitbucket_repo }}/deployments_config/environments/{{ '{' + item.uuid + '}' }}/variables"
+    method: GET
+    headers:
+      Authorization: "{{ bitbucket_auth }}"
+    return_content: yes
+  loop: "{{ environment_variables }}"
+  loop_control:
+    label: "{{ item.environment }}"
+  register: fetched_variables
+
+- name: Map variable keys to UUIDs for each environment
+  set_fact:
+    environment_variable_uuids: >-
+      {{
+        environment_variable_uuids | default({}) | combine({
+          item.item.environment: dict(
+            item | json_query('json.values[].key') | zip(
+              item | json_query('json.values[].uuid') | map('regex_replace', '[{}]', '')
+            )
+          )
+        })
+      }}
+  loop: "{{ fetched_variables.results }}"
+  loop_control:
+    label: "{{ item.item.environment }}"
+
+- name: Delete existing variables by UUID
+  uri:
+    url: >-
+      https://api.bitbucket.org/2.0/repositories/{{ bitbucket_workspace }}/{{ bitbucket_repo }}/deployments_config/environments/{{ '{' + item.0.uuid + '}' }}/variables/{{ '{' + environment_variable_uuids[item.0.environment][item.1.key] + '}' }}
+    method: DELETE
+    headers:
+      Authorization: "{{ bitbucket_auth }}"
+    status_code: [200, 204, 404]
+  with_subelements:
+    - "{{ environment_variables }}"
+    - variables
+  when: item.1.key in environment_variable_uuids[item.0.environment]
+  register: delete_env_vars_results
+  changed_when: delete_env_vars_results.status == 204
+
+
+- name: Add variables for each environment
+  uri:
+    url: "https://api.bitbucket.org/2.0/repositories/{{ bitbucket_workspace }}/{{ bitbucket_repo }}/deployments_config/environments/{{ '{' + item.0.uuid + '}' }}/variables"
     method: POST
     headers:
-      Authorization: "Bearer {{ bitbucket_token }}"
+      Authorization: "{{ bitbucket_auth }}"
       Content-Type: "application/json"
-    body: "{{ var_item | to_json }}"
+    body: >-
+      {
+        "key": "{{ item.1.key }}",
+        "value": "{{ item.1.value }}",
+        "secured": {{ item.1.secured | default(false) | to_json }}
+      }
     body_format: json
-  with_nested:
+    status_code: [200, 201]
+  with_subelements:
     - "{{ environment_variables }}"
-    - "{{ item.variables }}"
-  vars:
-    var_item:
-      key: "{{ item[1].key }}"
-      value: "{{ item[1].value }}"
-      secured: "{{ item[1].secured | default(false) }}"
-  register: result_env_vars
-
-- name: Check env vars
-  debug:
-    msg: "Variable '{{ item[1].key }}' pour '{{ item[0].environment }}' configurée avec succès."
-  loop: "{{ result_env_vars.results }}"
-  when: item[1].status == 201
+    - variables
+  changed_when: true
