@@ -1,6 +1,11 @@
 ---
 # tasks file for bitbucket_env_vars
 
+- name: Fetch environment UUIDs from Bitbucket API
+  include_tasks: fetch_env_uuids.yml
+  when: environment_variables | selectattr('uuid', 'undefined') | list | length > 0
+    or environment_variables | selectattr('uuid', 'equalto', '') | list | length > 0
+
 - name: Set repository variables
   include_tasks: repo_vars.yml
 

@@ -1,0 +1,41 @@
+---
+- name: Fetch Bitbucket deployment environments
+  uri:
+    url: "https://api.bitbucket.org/2.0/repositories/{{ bitbucket_workspace }}/{{ bitbucket_repo }}/environments/"
+    method: GET
+    headers:
+      Authorization: "{{ bitbucket_auth }}"
+    return_content: true
+  register: bitbucket_environments
+
+- name: Build environment UUID map
+  set_fact:
+    bitbucket_env_uuid_map: >-
+      {{
+        bitbucket_env_uuid_map | default({}) | combine({
+          item.name: item.uuid | regex_replace('[{}]', '')
+        })
+      }}
+  loop: "{{ bitbucket_environments.json['values'] }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Create temporary list for environment variables with UUIDs
+  set_fact:
+    env_vars_with_uuid: []
+
+- name: Inject UUIDs into environment_variables
+  set_fact:
+    env_vars_with_uuid: >-
+      {{
+        env_vars_with_uuid + [
+          item | combine({'uuid': bitbucket_env_uuid_map[item.environment] | default('')})
+        ]
+      }}
+  loop: "{{ environment_variables }}"
+  loop_control:
+    label: "{{ item.environment }}"
+
+- name: Update environment_variables with UUIDs
+  set_fact:
+    environment_variables: "{{ env_vars_with_uuid }}"
